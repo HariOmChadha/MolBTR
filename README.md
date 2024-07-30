@@ -56,7 +56,7 @@ We also provide pre-trained GCN models, which can be found in `ckpt/BT1` and `ck
 - BT2: 15% subgraph removed + 20% nodes/egdes masked
 
 ## Acknowledgements
-- MolCLR Approach: [https://www.nature.com/articles/s42256-022-00447-x#code-availability]
-- Barlow Twin Approach: [https://arxiv.org/abs/2103.03230]
+- MolCLR Approach: [https://www.nature.com/articles/s42256-022-00447-x#code-availability](https://www.nature.com/articles/s42256-022-00447-x#code-availability)
+- Barlow Twin Approach: [https://arxiv.org/abs/2103.03230](https://arxiv.org/abs/2103.03230)
 - PyTorch implementation of SimCLR: [https://github.com/sthalles/SimCLR](https://github.com/sthalles/SimCLR)
 - Strategies for Pre-training Graph Neural Networks: [https://github.com/snap-stanford/pretrain-gnns](https://github.com/snap-stanford/pretrain-gnns)
