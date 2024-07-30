@@ -73,7 +73,9 @@ def read_smiles(data_path):
     with open(data_path) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         for i, row in enumerate(csv_reader):
-            smiles = row[-1]
+            if i == 0:
+                continue
+            smiles = row[0]
             smiles_data.append(smiles)
     return smiles_data
 
@@ -136,7 +138,8 @@ class MoleculeDataset(Dataset):
         
         # Get the graph for i and j after removing subgraphs
         start_i, start_j = random.sample(list(range(N)), 2)
-        percent_i, percent_j = random.uniform(0, 0.2), random.uniform(0, 0.2)
+        # percent_i, percent_j = random.uniform(0, 0.2), random.uniform(0, 0.2)
+        percent_i, percent_j = 0.15, 0.15
         G_i, removed_i = remove_subgraph(molGraph, start_i, percent=percent_i)
         G_j, removed_j = remove_subgraph(molGraph, start_j, percent=percent_j)
 
@@ -175,10 +178,10 @@ class MoleculeDataset(Dataset):
         # Random Atom/Edge Masking #
         ############################
 
-        num_mask_nodes_i = max([0, math.floor(0.25*N)-len(removed_i)])
-        num_mask_edges_i = max([0, edge_attr_i.size(0)//2 - math.ceil(0.75*M)])
-        num_mask_nodes_j = max([0, math.floor(0.25*N)-len(removed_j)])
-        num_mask_edges_j = max([0, edge_attr_j.size(0)//2 - math.ceil(0.75*M)])
+        num_mask_nodes_i = max([0, math.floor(0.20*N)-len(removed_i)])
+        num_mask_edges_i = max([0, edge_attr_i.size(0)//2 - math.ceil(0.80*M)])
+        num_mask_nodes_j = max([0, math.floor(0.20*N)-len(removed_j)])
+        num_mask_edges_j = max([0, edge_attr_j.size(0)//2 - math.ceil(0.80*M)])
         mask_nodes_i = random.sample(atom_remain_indices_i, num_mask_nodes_i)
         mask_nodes_j = random.sample(atom_remain_indices_j, num_mask_nodes_j)
         mask_edges_i_single = random.sample(list(range(edge_attr_i.size(0)//2)), num_mask_edges_i)

@@ -48,7 +48,9 @@ def read_smiles(data_path):
     with open(data_path) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         for i, row in enumerate(csv_reader):
-            smiles = row[-1]
+            if i == 0:
+                continue
+            smiles = row[0]
             smiles_data.append(smiles)
             # mol = Chem.MolFromSmiles(smiles)
             # if mol != None:
@@ -87,6 +89,47 @@ def removeSubgraph(Graph, center, percent=0.2):
         temp = list(set(neighbors))
     return G, removed
 
+def networkx_graph_to_mol(graph):
+    mol = Chem.RWMol()
+    
+    atom_map = {}
+    for node, attrs in graph.nodes(data=True):
+        #print(node, attrs)
+        atom_type = attrs.get('atom_type', 1)
+        atom = Chem.Atom(atom_type)
+        chirality = attrs.get('chirality', Chem.rdchem.ChiralType.CHI_UNSPECIFIED)
+        atom.SetChiralTag(chirality)
+        atom_idx = mol.AddAtom(atom)
+        atom_map[node] = atom_idx
+    
+    for u, v, attrs in graph.edges(data=True):
+        #print(u, v, attrs)
+        bond_type = attrs.get('bond_type', 0)
+        #print(bond_type_idx)
+        bond_type_idx = BOND_LIST.index(bond_type)
+        bond_dir = attrs.get('bond_dir', Chem.rdchem.BondDir.NONE)
+        mol.AddBond(atom_map[u], atom_map[v], bond_type)
+    return mol.GetMol()
+
+
+def mol_to_networkx_graph(mol):
+    G = nx.Graph()
+    # Add nodes with attributes
+    for atom in mol.GetAtoms():
+        atom_idx = atom.GetIdx()
+        atom_type = atom.GetAtomicNum()
+        chirality = atom.GetChiralTag()
+        G.add_node(atom_idx, atom_type=atom_type, chirality=chirality)
+    
+    # Add edges with attributes
+    for bond in mol.GetBonds():
+        start_idx = bond.GetBeginAtomIdx()
+        end_idx = bond.GetEndAtomIdx()
+        bond_type = bond.GetBondType()
+        bond_dir = bond.GetBondDir()
+        G.add_edge(start_idx, end_idx, bond_type=bond_type, bond_dir=bond_dir)
+    return G
+
 
 class MoleculeDataset(Dataset):
     def __init__(self, data_path):
@@ -112,22 +155,45 @@ class MoleculeDataset(Dataset):
         edges = []
         for bond in bonds:
             edges.append([bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()])
-        molGraph = nx.Graph(edges)
+        
+        # molGraph = nx.Graph(edges)
+        molGraph = mol_to_networkx_graph(mol)
+        # print(self.smiles_data[index])
+        # print(molGraph)
+        # print(molGraph2)
         
         # Get the graph for i and j after removing subgraphs
         # G_i, removed_i = removeSubgraph(molGraph, start_i)
         # G_j, removed_j = removeSubgraph(molGraph, start_j)
 
         # percent_i, percent_j = random.uniform(0, 0.25), random.uniform(0, 0.25)
-        percent_i, percent_j = 0.25, 0.25
+        percent_i, percent_j = 0.15, 0.15
         # percent_i, percent_j = 0.2, 0.2
         G_i, removed_i = removeSubgraph(molGraph, start_i, percent_i)
         G_j, removed_j = removeSubgraph(molGraph, start_j, percent_j)
-        
+        # print(G_i)
+        # print(G_j)
+
+        # print(mol_a)
+        # G_j = mol_to_networkx_graph(mol_a)
+        # G_i = mol_to_networkx_graph(mol_b)
+        # print(G_i)
+        # print(G_j)
+
+        # mol_a = networkx_graph_to_mol(G_j)
+        # mol_b = networkx_graph_to_mol(G_i
+        # print(G_i)
+        # print(G_j)
+        # print(G_j)
+    
+
         for atom in atoms:
             type_idx.append(ATOM_LIST.index(atom.GetAtomicNum()))
             chirality_idx.append(CHIRALITY_LIST.index(atom.GetChiralTag()))
             atomic_number.append(atom.GetAtomicNum())
+        # print(type_idx)
+        # print(chirality_idx)
+        # print(atomic_number)
 
         x1 = torch.tensor(type_idx, dtype=torch.long).view(-1,1)
         x2 = torch.tensor(chirality_idx, dtype=torch.long).view(-1,1)
@@ -139,10 +205,13 @@ class MoleculeDataset(Dataset):
         for atom_idx in removed_i:
             # Change atom type to 118, and chirality to 0
             x_i[atom_idx,:] = torch.tensor([len(ATOM_LIST), 0])
+        # print(x_i)
+
         x_j = deepcopy(x)
         for atom_idx in removed_j:
             # Change atom type to 118, and chirality to 0
             x_j[atom_idx,:] = torch.tensor([len(ATOM_LIST), 0])
+        # print(x_j)
 
         # Only consider bond still exist after removing subgraph
         row_i, col_i, row_j, col_j = [], [], [], []
@@ -173,6 +242,15 @@ class MoleculeDataset(Dataset):
         
         data_i = Data(x=x_i, edge_index=edge_index_i, edge_attr=edge_attr_i)
         data_j = Data(x=x_j, edge_index=edge_index_j, edge_attr=edge_attr_j)
+
+        # mol_i = data_to_mol(data_i)
+        # mol_j = data_to_mol(data_j)
+
+        # smile_1 = Chem.MolToSmiles(mol_i)
+        # smile_2 = Chem.MolToSmiles(mol_j)
+
+        # print(smile_1)
+        # print(smile_2) 
         
         return data_i, data_j
 
@@ -219,13 +297,13 @@ class MoleculeDatasetWrapper(object):
         return train_loader, valid_loader
 
 
-if __name__ == "__main__":
-    data_path = 'data/chem_dataset/zinc_standard_agent/processed/smiles.csv'
-    # dataset = MoleculeDataset(data_path=data_path)
-    # print(dataset)
-    # print(dataset.__getitem__(0))
-    dataset = MoleculeDatasetWrapper(batch_size=4, num_workers=4, valid_size=0.1, data_path=data_path)
-    train_loader, valid_loader = dataset.get_data_loaders()
-    for bn, (xis, xjs) in enumerate(train_loader):
-        print(xis, xjs)
-        break
+# if __name__ == "__main__":
+#     data_path = 'GNN_BT_Data/Smiles_and_Descriptors.csv'
+#     # dataset = MoleculeDataset(data_path=data_path)
+#     # print(dataset)
+#     # print(dataset.__getitem__(0))
+#     dataset = MoleculeDatasetWrapper(batch_size=1, num_workers=0, valid_size=0.1, data_path=data_path)
+#     train_loader, valid_loader = dataset.get_data_loaders()
+#     for bn, (xis, xjs) in enumerate(train_loader):
+#         print("HI", xis, xjs)
+#         break

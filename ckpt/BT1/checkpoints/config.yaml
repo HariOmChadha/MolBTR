@@ -1,4 +1,3 @@
-name: BT1                              # folder name to save model
 batch_size: 32                         # batch size
 warm_up: 20                            # warm-up epochs
 epochs: 150                            # total number of epochs
@@ -11,7 +10,7 @@ save_every_n_epochs: 50                  # automatic model saving frequecy
 log_every_n_steps: 50                   # print training log frequency
 
 fp16_precision: False                   # float precision 16 (i.e. True/False)
-init_lr: 0.0005                         # initial learning rate for Adam
+init_lr: 0.001                         # initial learning rate for Adam
 weight_decay: 5e-5                      # weight decay for Adam
 gpu: cuda:0                             # training GPU 
 
@@ -23,9 +22,9 @@ model:
   drop_ratio: 0                         # dropout ratio
   pool: mean                            # readout pooling (i.e., mean/max/add)
 
-aug: subgraph                           # molecule graph augmentation strategy (i.e., node/subgraph/mix)
+aug: subgraph                               # molecule graph augmentation strategy (i.e., node/subgraph/mix)
 dataset:
-  num_workers: 4                        # dataloader number of workers
+  num_workers: 4                       # dataloader number of workers
   valid_size: 0.05                      # ratio of validation data
   data_path: GNN_BT_Data/Smiles_and_Descriptors.csv # path of pre-training data
 

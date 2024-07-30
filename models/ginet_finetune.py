@@ -96,7 +96,7 @@ class GINet(nn.Module):
         if self.task == 'classification':
             out_dim = 2
         elif self.task == 'regression':
-            out_dim = 1
+            out_dim = 2
         
         self.pred_n_layer = max(1, pred_n_layer)
 
@@ -131,6 +131,8 @@ class GINet(nn.Module):
         x = data.x
         edge_index = data.edge_index
         edge_attr = data.edge_attr
+        temp = data.temp
+
         
         h = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])
 
@@ -144,6 +146,14 @@ class GINet(nn.Module):
 
         h = self.pool(h, data.batch)
         h = self.feat_lin(h)
+        a = self.pred_head(h)
+
+        ln_A, B = a.split(1, dim=1)
+        ln_A = ln_A.expand(-1, 5)
+        B = B.expand(-1, 5)
+        
+        result = ln_A + B / temp
+        return h, result, ln_A, B
         
         return h, self.pred_head(h)
 

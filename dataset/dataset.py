@@ -48,7 +48,9 @@ def read_smiles(data_path):
     with open(data_path) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         for i, row in enumerate(csv_reader):
-            smiles = row[-1]
+            if i == 0:
+                continue
+            smiles = row[0]
             smiles_data.append(smiles)
     return smiles_data
 

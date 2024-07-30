@@ -138,15 +138,21 @@ class GCN(nn.Module):
             )
         elif self.task == 'regression':
             self.pred_head = nn.Sequential(
-                nn.Linear(self.feat_dim, self.feat_dim//2), 
+                nn.Linear(self.feat_dim, self.feat_dim//2, bias=False), 
                 nn.Softplus(),
-                nn.Linear(self.feat_dim//2, 1)
+                # nn.BatchNorm1d(self.feat_dim//2),
+                # nn.Linear(self.feat_dim//2, 1, bias=False),
+                # nn.Linear(self.feat_dim//2, 1)
             )
+            self.pred_head_A = nn.Linear(self.feat_dim//2, 1, bias=False)
+            self.pred_head_B = nn.Linear(self.feat_dim//2, 1, bias=False)
 
     def forward(self, data):
         x = data.x
         edge_index = data.edge_index
         edge_attr = data.edge_attr
+        temp = data.temp
+
 
         h = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])
 
@@ -161,7 +167,16 @@ class GCN(nn.Module):
         h = self.pool(h, data.batch)
         h = self.feat_lin(h)
 
-        return h, self.pred_head(h)
+        a = self.pred_head(h)
+        ln_A = self.pred_head_A(a)
+        B = self.pred_head_B(a)
+
+        # ln_A, B = a.split(1, dim=1)
+        ln_A = ln_A.expand(-1, 5)
+        B = B.expand(-1, 5)
+        
+        result = ln_A + B / temp
+        return h, result, ln_A, B
 
     def load_my_state_dict(self, state_dict):
         own_state = self.state_dict()

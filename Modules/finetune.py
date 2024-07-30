@@ -1,36 +1,41 @@
 import os
-import shutil
+# import shutil
 import sys
 import yaml
 import numpy as np
-import pandas as pd
-from datetime import datetime
+# import pandas as pd
+# from datetime import datetime
+# import matplotlib.pyplot as plt
+# from operator import add
 
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-from torch.optim.lr_scheduler import CosineAnnealingLR
+# from torch.optim.lr_scheduler import CosineAnnealingLR
 from sklearn.metrics import roc_auc_score, mean_squared_error, mean_absolute_error
 
 from dataset.dataset_test import MolTestDatasetWrapper
-
+from utils.plots import plot_losses, parity_plot_2, parity_plot_3, plot_srcc_MAE
 
 apex_support = False
 try:
     sys.path.append('./apex')
     from apex import amp
-
     apex_support = True
 except:
     print("Please install apex for mixed precision training from: https://github.com/NVIDIA/apex")
     apex_support = False
 
 
-def _save_config_file(model_checkpoints_folder):
+
+def _save_config_file(model_checkpoints_folder, config):
     if not os.path.exists(model_checkpoints_folder):
         os.makedirs(model_checkpoints_folder)
-        shutil.copy('./config_finetune.yaml', os.path.join(model_checkpoints_folder, 'config_finetune.yaml'))
+        #make th config file. The file dons't already exist there
+    with open(os.path.join(model_checkpoints_folder, 'config_finetune.yaml'), 'w') as file:
+            yaml.dump(config, file)
+        # shutil.copy('./config_finetune.yaml', os.path.join(model_checkpoints_folder, 'config_finetune.yaml'))
 
 
 class Normalizer(object):
@@ -57,19 +62,22 @@ class Normalizer(object):
 
 
 class FineTune(object):
+    '''Fine-tune the model on the downstream task.
+    Only use with 'visc', 'cond', 'visc_hc' tasks'''
     def __init__(self, dataset, config):
         self.config = config
         self.device = self._get_device()
 
-        current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-        dir_name = current_time + '_' + config['task_name'] + '_' + config['dataset']['target']
-        log_dir = os.path.join('finetune', dir_name)
+        #current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+        #dir_name = current_time + '_' + config['task_name'] + '_'
+        dir_name = config['name']
+        log_dir = os.path.join(config['save_folder'], dir_name)
         self.writer = SummaryWriter(log_dir=log_dir)
         self.dataset = dataset
         if config['dataset']['task'] == 'classification':
             self.criterion = nn.CrossEntropyLoss()
         elif config['dataset']['task'] == 'regression':
-            if self.config["task_name"] in ['qm7', 'qm8', 'qm9']:
+            if self.config["task_name"] in ['qm7', 'qm8', 'qm9', 'visc', 'cond', 'visc_hc']:
                 self.criterion = nn.L1Loss()
             else:
                 self.criterion = nn.MSELoss()
@@ -86,20 +94,19 @@ class FineTune(object):
 
     def _step(self, model, data, n_iter):
         # get the prediction
-        __, pred = model(data)  # [N,C]
+        __, pred, ln_A, B = model(data)  # [N,C]
+        # if self.config['dataset']['task'] == 'classification':
+        loss = 1 * self.criterion(pred, data.y) + 0 * self.criterion(ln_A, data.ln_A) + 0 * self.criterion(B, data.B)
+        # elif self.config['dataset']['task'] == 'regression':
+        #     if self.normalizer:
+        #         loss = self.criterion(pred, self.normalizer.norm(data.y))
+        #     else:
+        #         loss = self.criterion(pred, data.y)
 
-        if self.config['dataset']['task'] == 'classification':
-            loss = self.criterion(pred, data.y.flatten())
-        elif self.config['dataset']['task'] == 'regression':
-            if self.normalizer:
-                loss = self.criterion(pred, self.normalizer.norm(data.y))
-            else:
-                loss = self.criterion(pred, data.y)
+        return loss, pred, ln_A, B
 
-        return loss
-
-    def train(self):
-        train_loader, valid_loader, test_loader = self.dataset.get_data_loaders()
+    def train(self, config):
+        train_loader, valid_loader, test_loader = self.dataset.get_data_loaders(config['task_name'])
 
         self.normalizer = None
         if self.config["task_name"] in ['qm7', 'qm9']:
@@ -125,6 +132,8 @@ class FineTune(object):
                 print(name, param.requires_grad)
                 layer_list.append(name)
 
+        print(layer_list)
+
         params = list(map(lambda x: x[1],list(filter(lambda kv: kv[0] in layer_list, model.named_parameters()))))
         base_params = list(map(lambda x: x[1],list(filter(lambda kv: kv[0] not in layer_list, model.named_parameters()))))
 
@@ -133,15 +142,20 @@ class FineTune(object):
             self.config['init_lr'], weight_decay=eval(self.config['weight_decay'])
         )
 
+        # scheduler = CosineAnnealingLR(
+        #     optimizer, T_max=self.config['epochs']-self.config['warmup'], 
+        #     eta_min=0, last_epoch=-1
+        # )
+
         if apex_support and self.config['fp16_precision']:
             model, optimizer = amp.initialize(
                 model, optimizer, opt_level='O2', keep_batchnorm_fp32=True
             )
 
-        model_checkpoints_folder = os.path.join(self.writer.log_dir, 'checkpoints')
+        model_checkpoints_folder = self.writer.log_dir
 
         # save config file
-        _save_config_file(model_checkpoints_folder)
+        _save_config_file(model_checkpoints_folder, config)
 
         n_iter = 0
         valid_n_iter = 0
@@ -149,16 +163,26 @@ class FineTune(object):
         best_valid_rgr = np.inf
         best_valid_cls = 0
 
+        patience = 0
+
+        train_losses = []
+        valid_losses = []
+
         for epoch_counter in range(self.config['epochs']):
+            print(f'Epoch: {epoch_counter +1}')
+            train_l = 0
+            batch_counter = 0
             for bn, data in enumerate(train_loader):
+                batch_counter += 1
                 optimizer.zero_grad()
 
                 data = data.to(self.device)
-                loss = self._step(model, data, n_iter)
+                loss, *_ = self._step(model, data, n_iter)
+                train_l += loss.item()
 
                 if n_iter % self.config['log_every_n_steps'] == 0:
                     self.writer.add_scalar('train_loss', loss, global_step=n_iter)
-                    print(epoch_counter, bn, loss.item())
+                    print(f'Train Loss: {loss:.4f}')
 
                 if apex_support and self.config['fp16_precision']:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -168,30 +192,58 @@ class FineTune(object):
 
                 optimizer.step()
                 n_iter += 1
+            train_l /= batch_counter
+            train_losses.append(train_l)
 
             # validate the model if requested
             if epoch_counter % self.config['eval_every_n_epochs'] == 0:
                 if self.config['dataset']['task'] == 'classification': 
                     valid_loss, valid_cls = self._validate(model, valid_loader)
+                    
                     if valid_cls > best_valid_cls:
                         # save the model weights
+                        
                         best_valid_cls = valid_cls
                         torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model.pth'))
                 elif self.config['dataset']['task'] == 'regression': 
                     valid_loss, valid_rgr = self._validate(model, valid_loader)
-                    if valid_rgr < best_valid_rgr:
+                    valid_losses.append(valid_rgr)
+                    if valid_loss < best_valid_loss:
                         # save the model weights
                         best_valid_rgr = valid_rgr
+                        best_valid_loss = valid_loss
+                        patience = 0
                         torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model.pth'))
+                    else:
+                        patience += 1
+                    print(f'Val Loss: {valid_loss:.4f} best_val_loss: {best_valid_loss:.4f} patience: {patience}/{self.config["patience"]}')
+
+                    if patience >= self.config['patience']:
+                        print("Early stopping.")
+                        break
 
                 self.writer.add_scalar('validation_loss', valid_loss, global_step=valid_n_iter)
                 valid_n_iter += 1
-        
-        self._test(model, test_loader)
+
+            # if epoch_counter >= self.config['warmup']:
+            #     scheduler.step()
+
+        plot_losses(train_losses, valid_losses, model_checkpoints_folder)
+
+        predictions, labels, A_pred, ln_As, B_pred, Bs = self._test(model, test_loader)
+
+        srcc, mae = parity_plot_3(predictions, labels, model_checkpoints_folder, tag = self.config['task_name'])
+
+        parity_plot_2(A_pred, ln_As, model_checkpoints_folder, tag = 'ln(A)')
+
+        parity_plot_2(B_pred, Bs, model_checkpoints_folder, tag = 'B')
+        return srcc, mae
+
 
     def _load_pre_trained_weights(self, model):
         try:
             checkpoints_folder = os.path.join('./ckpt', self.config['fine_tune_from'], 'checkpoints')
+            # checkpoints_folder = os.path.join('./finetune', self.config['fine_tune_from'], 'checkpoints')
             state_dict = torch.load(os.path.join(checkpoints_folder, 'model.pth'), map_location=self.device)
             # model.load_state_dict(state_dict)
             model.load_my_state_dict(state_dict)
@@ -212,11 +264,10 @@ class FineTune(object):
             for bn, data in enumerate(valid_loader):
                 data = data.to(self.device)
 
-                __, pred = model(data)
-                loss = self._step(model, data, bn)
+                loss, pred, *_ = self._step(model, data, bn)
 
-                valid_loss += loss.item() * data.y.size(0)
-                num_data += data.y.size(0)
+                valid_loss += loss.item()
+                num_data += 1
 
                 if self.normalizer:
                     pred = self.normalizer.denorm(pred)
@@ -228,18 +279,18 @@ class FineTune(object):
                     predictions.extend(pred.detach().numpy())
                     labels.extend(data.y.flatten().numpy())
                 else:
-                    predictions.extend(pred.cpu().detach().numpy())
+                    predictions.extend(pred.cpu().flatten().numpy())
                     labels.extend(data.y.cpu().flatten().numpy())
 
             valid_loss /= num_data
         
         model.train()
-
+        
         if self.config['dataset']['task'] == 'regression':
             predictions = np.array(predictions)
             labels = np.array(labels)
-            if self.config['task_name'] in ['qm7', 'qm8', 'qm9']:
-                mae = mean_absolute_error(labels, predictions)
+            if self.config['task_name'] in ['qm7', 'qm8', 'qm9', 'visc', 'cond', 'visc_hc']:
+                mae = np.mean(np.abs(labels - predictions))
                 print('Validation loss:', valid_loss, 'MAE:', mae)
                 return valid_loss, mae
             else:
@@ -255,7 +306,7 @@ class FineTune(object):
             return valid_loss, roc_auc
 
     def _test(self, model, test_loader):
-        model_path = os.path.join(self.writer.log_dir, 'checkpoints', 'model.pth')
+        model_path = os.path.join(self.writer.log_dir, 'model.pth')
         state_dict = torch.load(model_path, map_location=self.device)
         model.load_state_dict(state_dict)
         print("Loaded trained model with success.")
@@ -263,6 +314,10 @@ class FineTune(object):
         # test steps
         predictions = []
         labels = []
+        ln_As = []
+        A_pred = []
+        Bs = []
+        B_pred = []
         with torch.no_grad():
             model.eval()
 
@@ -271,11 +326,11 @@ class FineTune(object):
             for bn, data in enumerate(test_loader):
                 data = data.to(self.device)
 
-                __, pred = model(data)
-                loss = self._step(model, data, bn)
+                
+                loss, pred, ln_A, B = self._step(model, data, bn)
 
-                test_loss += loss.item() * data.y.size(0)
-                num_data += data.y.size(0)
+                test_loss += loss.item()
+                num_data += 1
 
                 if self.normalizer:
                     pred = self.normalizer.denorm(pred)
@@ -287,8 +342,14 @@ class FineTune(object):
                     predictions.extend(pred.detach().numpy())
                     labels.extend(data.y.flatten().numpy())
                 else:
-                    predictions.extend(pred.cpu().detach().numpy())
+                    predictions.extend(pred.cpu().flatten().numpy())
                     labels.extend(data.y.cpu().flatten().numpy())
+                    data.ln_A = data.ln_A.expand(-1, 5)
+                    data.B = data.B.expand(-1, 5)
+                    ln_As.extend(data.ln_A.cpu().flatten().numpy())
+                    A_pred.extend(ln_A.cpu().flatten().numpy())
+                    Bs.extend(data.B.cpu().flatten().numpy())
+                    B_pred.extend(B.cpu().flatten().numpy())
 
             test_loss /= num_data
         
@@ -297,7 +358,7 @@ class FineTune(object):
         if self.config['dataset']['task'] == 'regression':
             predictions = np.array(predictions)
             labels = np.array(labels)
-            if self.config['task_name'] in ['qm7', 'qm8', 'qm9']:
+            if self.config['task_name'] in ['qm7', 'qm8', 'qm9', 'visc', 'cond', 'visc_hc']:
                 self.mae = mean_absolute_error(labels, predictions)
                 print('Test loss:', test_loss, 'Test MAE:', self.mae)
             else:
@@ -310,24 +371,46 @@ class FineTune(object):
             self.roc_auc = roc_auc_score(labels, predictions[:,1])
             print('Test loss:', test_loss, 'Test ROC AUC:', self.roc_auc)
 
+        
+        predictions = np.array(predictions).reshape(-1, 5)
+        labels = np.array(labels).reshape(-1, 5)
+        A_pred = np.array(A_pred).reshape(-1, 5)
+        ln_As = np.array(ln_As).reshape(-1, 5)
+        Bs = np.array(Bs).reshape(-1, 5)
+        B_pred = np.array(B_pred).reshape(-1, 5)
+        
+        return predictions, labels, A_pred, ln_As, B_pred, Bs
+
 
 def main(config):
     dataset = MolTestDatasetWrapper(config['batch_size'], **config['dataset'])
 
     fine_tune = FineTune(dataset, config)
-    fine_tune.train()
+
+    srcc, mae = fine_tune.train(config)
+
+    return srcc, mae
     
-    if config['dataset']['task'] == 'classification':
-        return fine_tune.roc_auc
-    if config['dataset']['task'] == 'regression':
-        if config['task_name'] in ['qm7', 'qm8', 'qm9']:
-            return fine_tune.mae
-        else:
-            return fine_tune.rmse
+    # if config['dataset']['task'] == 'classification':
+    #     return fine_tune.roc_auc
+    # if config['dataset']['task'] == 'regression':
+    #     if config['task_name'] in ['qm7', 'qm8', 'qm9', 'visc']:
+    #         return fine_tune.mae
+    #     else:
+    #         return fine_tune.rmse
 
 
-if __name__ == "__main__":
+def run(task, main_folder, tune_from, runs, targets):
+    '''Run the fine-tuning experiments for the given task.
+    task: str, the name of the task
+    main_folder: str, the folder to save the results
+    tune_from: str, the name of the pre-trained model
+    runs: int, the number of runs
+    targets: int, the number of train splits to fine-tune on'''
+
     config = yaml.load(open("config_finetune.yaml", "r"), Loader=yaml.FullLoader)
+
+    config['task_name'] = task
 
     if config['task_name'] == 'BBBP':
         config['dataset']['task'] = 'classification'
@@ -418,20 +501,123 @@ if __name__ == "__main__":
         config['dataset']['data_path'] = 'data/qm9/qm9.csv'
         target_list = ['mu', 'alpha', 'homo', 'lumo', 'gap', 'r2', 'zpve', 'cv']
 
+    elif config["task_name"] == 'visc':
+        config['dataset']['task'] = 'regression'
+        config['dataset']['data_path'] = 'GNN_BT_Data/all_data_visc.csv'
+        target_list = [['Viscosity_1', 'Viscosity_2', 'Viscosity_3', 'Viscosity_4', 'Viscosity_5', 'T1', 'T2', 'T3', 'T4', 'T5', 'Ln(A)', 'Ea/R', 'smiles']]
+    elif config["task_name"] == 'cond':
+        config['dataset']['task'] = 'regression'
+        config['dataset']['data_path'] = 'GNN_BT_Data/all_data_cond.csv'
+        target_list = [['K1', 'K2', 'K3', 'K4', 'K5', 'T1', 'T2', 'T3', 'T4', 'T5', 'Intercept', 'Coefficients', 'SMILES']]
+    elif config["task_name"] == 'visc_hc':
+        config['dataset']['task'] = 'regression'
+        config['dataset']['data_path'] = 'GNN_BT_Data/hydrocarbon_visc.csv'
+        target_list = [['Viscosity_1', 'Viscosity_2', 'Viscosity_3', 'Viscosity_4', 'Viscosity_5', 'T1', 'T2', 'T3', 'T4', 'T5', 'Intercept (A)', 'Coefficient (B)', 'smiles']]
     else:
         raise ValueError('Undefined downstream task!')
 
     print(config)
 
-    results_list = []
-    for target in target_list:
-        config['dataset']['target'] = target
-        result = main(config)
-        results_list.append([target, result])
+    # results_list = []
+    # for target in target_list:
+    #     config['dataset']['target'] = target
+    #     result = main(config)
+    #     results_list.append([target, result])
 
-    os.makedirs('experiments', exist_ok=True)
-    df = pd.DataFrame(results_list)
-    df.to_csv(
-        'experiments/{}_{}_finetune.csv'.format(config['fine_tune_from'], config['task_name']), 
-        mode='a', index=False, header=False
-    )
+
+    # save all the srcc and mae values in a dictionary
+    # save results in a yaml file
+    s_avg = np.zeros((targets, 5))
+    s_std = np.zeros((targets, 5))
+    m_avg = np.zeros((targets, 5))
+    m_std = np.zeros((targets, 5))
+
+    BT_s_avg = np.zeros((targets, 5))
+    BT_s_std = np.zeros((targets, 5))
+    BT_m_avg = np.zeros((targets, 5))
+    BT_m_std = np.zeros((targets, 5))
+
+    results = {
+        'scratch': np.zeros((runs, targets, 5)).tolist(),
+        'BT': np.zeros((runs, targets, 5)).tolist(),
+        'scratch_mae': np.zeros((runs, targets, 5)).tolist(),
+        'BT_mae': np.zeros((runs, targets, 5)).tolist(),
+        'axis': np.zeros(targets).tolist()
+    }
+
+    for j in range(runs):
+        folder = os.path.join(main_folder, f'test_{j+1}')
+        os.makedirs(folder, exist_ok=False)
+        
+        scratch = np.zeros((targets, 5))
+        BT = np.zeros((targets, 5))
+        scratch_mae = np.zeros((targets, 5))
+        BT_mae = np.zeros((targets, 5))
+        axis = np.zeros(targets)
+
+        a = 0
+        for i in range(6, 6-targets, -1):
+            print("start")
+            config['dataset']['target'] = target_list[0]
+            config['dataset']['train_size'] = (i+1)*0.1
+            config['save_folder'] = folder
+            config['fine_tune_from'] = tune_from
+            config['name'] = f'BT_{(i+1)*0.1:.1f}'
+            
+            srcc_BT, mae_BT = main(config)
+            BT[a] = srcc_BT
+            BT_mae[a] = mae_BT
+
+            config['fine_tune_from'] = 'None'
+            config['name'] = f'Scratch_{(i+1)*0.1:.1f}'
+            srcc_s, mae_s = main(config)
+            scratch[a] = srcc_s
+            scratch_mae[a] = mae_s
+            
+
+            if config["task_name"] == 'visc':
+                axis[a] = int((i+1)*0.1*477)
+            elif config["task_name"] == 'cond':
+                axis[a] = int((i+1)*0.1*1222)
+            elif config["task_name"] == 'visc_hc':
+                axis[a] = int((i+1)*0.1*182)
+
+            
+            print("done")
+        
+        for i in range(5):
+            plot_srcc_MAE(scratch[:, i], BT[:, i], s_std[:, i], BT_s_std[:, i], axis, f'{i+1}', folder, tag2='srcc')
+            plot_srcc_MAE(scratch_mae[:, i], BT_mae[:, i], m_std[:, i], BT_m_std[:, i], axis, f'{i+1}', folder, tag2='mae')
+
+        results['scratch'][j] = scratch.tolist()
+        results['BT'][j] = BT.tolist()
+        results['scratch_mae'][j] = scratch_mae.tolist()
+        results['BT_mae'][j] = BT_mae.tolist()
+        results['axis'] = axis.tolist()
+
+        s_avg += scratch
+        m_avg += scratch_mae
+        BT_s_avg += BT
+        BT_m_avg += BT_mae
+
+    s_avg /= runs
+    m_avg /= runs
+    BT_s_avg /= runs
+    BT_m_avg /= runs
+
+    if runs > 1:
+        s_std = np.std(np.array(results['scratch']), axis=0)
+        m_std = np.std(np.array(results['scratch_mae']), axis=0)
+        BT_s_std = np.std(np.array(results['BT']), axis=0)
+        BT_m_std = np.std(np.array(results['BT_mae']), axis=0)
+
+        for i in range(5):
+            plot_srcc_MAE(s_avg[:, i], BT_s_avg[:, i], s_std[:, i], BT_s_std[:, i], axis, f'{i+1}', main_folder, tag2='srcc', tag3 = 'avg')
+            plot_srcc_MAE(m_avg[:, i], BT_m_avg[:, i], m_std[:, i], BT_m_std[:, i], axis, f'{i+1}', main_folder, tag2='mae', tag3 = 'avg')
+
+    # Save results to YAML file
+    with open(f"{main_folder}/results.yaml", "w") as file:
+        yaml.dump(results, file)
+
+    
+
