@@ -1,6 +1,6 @@
 ## Updated Approach: Molecular Barlow Twin Learning of Representations via Graph Neural Networks ##
 
-<img src="figs/BT_pipeline.png" width="700">
+<img src="figs/BT_pipeline.png" width="750">
 
 The original implementation has been updated to use the augmentations for the molecules to train two models simulaneously using a Barlow Twin approach: [https://arxiv.org/abs/2103.03230]. The models can then be finetuned to predict the viscosity/thermal conductivity of thermal fluids. 
 
@@ -18,16 +18,16 @@ conda create -n molbtr python=3.11
 ```
 conda activate molbtr
 ```
-- Install requirements
-```
-pip install -r requirements.txt
-```
 - Clone the source code of MolCLR
 ```
 git clone https://github.com/HariOmChadha/MolBTR.git
 ```
 ```
 cd MolBTR
+```
+- Install requirements
+```
+pip install -r requirements.txt
 ```
 
 ### Dataset
