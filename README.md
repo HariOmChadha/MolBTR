@@ -1,10 +1,12 @@
-## Molecular Contrastive Learning of Representations via Graph Neural Networks ##
+## Molecular Barlow Twin Learning of Representations via Graph Neural Networks ##
 
-#### Nature Machine Intelligence [[Paper]](https://www.nature.com/articles/s42256-022-00447-x) [[arXiv]](https://arxiv.org/abs/2102.10056/) [[PDF]](https://www.nature.com/articles/s42256-022-00447-x.pdf) </br>
+## Previous approach: Molecular Contrastive Learning of representations
+Nature Machine Intelligence [[Paper]](https://www.nature.com/articles/s42256-022-00447-x) [[arXiv]](https://arxiv.org/abs/2102.10056/) [[PDF]](https://www.nature.com/articles/s42256-022-00447-x.pdf) </br>
 [Yuyang Wang](https://yuyangw.github.io/), [Jianren Wang](https://www.jianrenw.com/), [Zhonglin Cao](https://www.linkedin.com/in/zhonglincao/?trk=public_profile_browsemap), [Amir Barati Farimani](https://www.meche.engineering.cmu.edu/directory/bios/barati-farimani-amir.html) </br>
 Carnegie Mellon University </br>
 
-<img src="figs/pipeline.gif" width="450">
+
+<img src="figs/BT_pipeline.png" width="450">
 
 This is the official implementation of <strong><em>MolCLR</em></strong>: ["Molecular Contrastive Learning of Representations via Graph Neural Networks"](https://www.nature.com/articles/s42256-022-00447-x). In this work, we introduce a contrastive learning framework for molecular representation learning on large unlabelled dataset (~10M unique molecules). <strong><em>MolCLR</em></strong> pre-training greatly boosts the performance of GNN models on various downstream molecular property prediction benchmarks. 
 If you find our work useful in your research, please cite:
