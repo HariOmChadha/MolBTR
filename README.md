@@ -38,7 +38,7 @@ The datasets used can be found here:
 
 To train the MolBTR, where the configurations and detailed explaination for each variable can be found in `config.yaml`
 
-- Use the jupyter notebook called main.ipynb
+- Use the jupyter notebook called `main.ipynb`
 
 To monitor the training via tensorboard, run `tensorboard --logdir ckpt/{PATH}` and click the URL http://127.0.0.1:6006/.
 
@@ -46,7 +46,7 @@ To monitor the training via tensorboard, run `tensorboard --logdir ckpt/{PATH}` 
 
 To fine-tune the MolBTR pre-trained model on downstream molecular benchmarks, where the configurations and detailed explaination for each variable can be found in `config_finetune.yaml`. IMPORTANT: Use the datasets in the format provided. Currently, can only finetune for Dynamic Viscosity and Thermal Conductivity. 
 
-- Use the jupyter notebook called main.ipynb 
+- Use the jupyter notebook called `main.ipynb` 
 
 
 ### Pre-trained models
