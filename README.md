@@ -1,4 +1,4 @@
-### Updated Approach: Molecular Barlow Twin Learning of Representations via Graph Neural Networks ##
+## Updated Approach: Molecular Barlow Twin Learning of Representations via Graph Neural Networks ##
 
 <img src="figs/BT_pipeline.png" width="450">
 
