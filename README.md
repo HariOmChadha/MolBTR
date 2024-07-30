@@ -45,8 +45,8 @@ Use the jupyter notebook called main.ipynb
 ### Pre-trained models
 
 We also provide pre-trained GCN models, which can be found in `ckpt/BT1` and `ckpt/BT2` respectively.
-BT1: 15% subgraph removed
-BT2: 15% subgraph removed + 20% nodes/egdes masked
+- BT1: 15% subgraph removed
+- BT2: 15% subgraph removed + 20% nodes/egdes masked
 
 ## Acknowledgements
 - MolCLR Approach: [https://www.nature.com/articles/s42256-022-00447-x#code-availability]
