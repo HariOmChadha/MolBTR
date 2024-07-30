@@ -1,0 +1,14 @@
+pyYaml
+tensorboard
+torch
+torchvision
+numpy
+pyYaml
+rdkit
+tensorboard
+apex
+matplotlib
+ipykernel
+torch-geometric 
+torch-sparse
+torch-scatter

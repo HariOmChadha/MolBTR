@@ -1,4 +1,4 @@
-name: BT1                              # folder name to save model
+name: BT3                              # folder name to save model
 batch_size: 32                         # batch size
 warm_up: 20                            # warm-up epochs
 epochs: 150                            # total number of epochs
