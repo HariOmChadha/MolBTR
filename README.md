@@ -11,18 +11,18 @@ The original implementation has been updated to use the augmentations for the mo
 Set up conda environment and clone the github repo
 
 
-# create a new environment
+- Create a new environment
 ```
 conda create -n molbtr python=3.11
 ```
 ```
 conda activate molbtr
 ```
-# install requirements
+- Install requirements
 ```
 pip install -r requirements.txt
 ```
-# clone the source code of MolCLR
+- Clone the source code of MolCLR
 ```
 git clone https://github.com/HariOmChadha/MolBTR.git
 ```
