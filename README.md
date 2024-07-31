@@ -32,7 +32,7 @@ pip install -r requirements.txt
 
 ### Dataset
 
-The datasets used can be found in `GNN_BT_Data` folder 
+The datasets used can be found in `GNN_BT_Data` folder. The splits are done using a specific set of indices to keep consistency. This can be changed in `dataset_test.py`.
 
 ### Pre-training
 
