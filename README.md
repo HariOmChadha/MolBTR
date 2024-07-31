@@ -25,7 +25,7 @@ git clone https://github.com/HariOmChadha/MolBTR.git
 ```
 cd MolBTR
 ```
-- Install requirements:
+- Install dependencies:
 ```
 pip install torch
 pip install -r requirements.txt
