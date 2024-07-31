@@ -7,4 +7,3 @@ __pycache__
 data/
 finetune/
 experiments/
-GNN_BT_Data/
