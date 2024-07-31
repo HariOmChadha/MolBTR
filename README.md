@@ -1,6 +1,6 @@
 ## Updated Approach: Molecular Barlow Twin Learning of Representations via Graph Neural Networks ##
 
-<img align='center' src="figs/BT_pipeline.png" width="700">
+<img src="figs/BT_pipeline.png" width="700">
 
 The original implementation has been updated to use the augmentations for the molecules to train two models simultaneously using a Barlow Twin approach: [https://arxiv.org/abs/2103.03230]. The models can then be finetuned to predict the viscosity/thermal conductivity of thermal fluids. 
 
@@ -8,7 +8,7 @@ The original implementation has been updated to use the augmentations for the mo
 
 ### Installation
 
-Set up conda environment and clone the github repo
+Set up conda environment and clone the github repo.
 
 
 - Create a new environment:
@@ -27,12 +27,17 @@ cd MolBTR
 ```
 - Install requirements:
 ```
+pip install torch
 pip install -r requirements.txt
 ```
 
 ### Dataset
 
 The datasets used can be found in `GNN_BT_Data` folder. The splits are done using a specific set of indices to keep consistency. This can be changed in `dataset_test.py`.
+`cond_data.csv`: contains the thermal conductivity values at 5 different temperatures for each molecule
+`visc_data.csv`: contains the dynamic viscosity values at 5 different temperatures for each molecule
+`visc_hc_data.csv`: this contains only hydrocarbons
+`Smiles.csv`: contains around 16,000 SMILES strings
 
 ### Pre-training
 

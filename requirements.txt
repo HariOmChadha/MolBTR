@@ -1,14 +1,12 @@
 pyYaml
 tensorboard
-torch
 torchvision
 numpy
-pyYaml
 rdkit
-tensorboard
-apex
 matplotlib
 ipykernel
-torch-geometric 
-torch-sparse
+torch-geometric
 torch-scatter
+torch-sparse
+# apex          # for mixed precision training
+

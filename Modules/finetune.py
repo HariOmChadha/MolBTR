@@ -503,15 +503,15 @@ def run(task, main_folder, tune_from, runs, targets):
 
     elif config["task_name"] == 'visc':
         config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'GNN_BT_Data/all_data_visc.csv'
+        config['dataset']['data_path'] = 'GNN_BT_Data/visc_data.csv'
         target_list = [['Viscosity_1', 'Viscosity_2', 'Viscosity_3', 'Viscosity_4', 'Viscosity_5', 'T1', 'T2', 'T3', 'T4', 'T5', 'Ln(A)', 'Ea/R', 'smiles']]
     elif config["task_name"] == 'cond':
         config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'GNN_BT_Data/all_data_cond.csv'
+        config['dataset']['data_path'] = 'GNN_BT_Data/cond_data.csv'
         target_list = [['K1', 'K2', 'K3', 'K4', 'K5', 'T1', 'T2', 'T3', 'T4', 'T5', 'Intercept', 'Coefficients', 'SMILES']]
     elif config["task_name"] == 'visc_hc':
         config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'GNN_BT_Data/hydrocarbon_visc.csv'
+        config['dataset']['data_path'] = 'GNN_BT_Data/visc_hc_data.csv'
         target_list = [['Viscosity_1', 'Viscosity_2', 'Viscosity_3', 'Viscosity_4', 'Viscosity_5', 'T1', 'T2', 'T3', 'T4', 'T5', 'Intercept (A)', 'Coefficient (B)', 'smiles']]
     else:
         raise ValueError('Undefined downstream task!')
