@@ -2,7 +2,7 @@
 
 <img align='center' src="figs/BT_pipeline.png" width="700">
 
-The original implementation has been updated to use the augmentations for the molecules to train two models simulaneously using a Barlow Twin approach: [https://arxiv.org/abs/2103.03230]. The models can then be finetuned to predict the viscosity/thermal conductivity of thermal fluids. 
+The original implementation has been updated to use the augmentations for the molecules to train two models simultaneously using a Barlow Twin approach: [https://arxiv.org/abs/2103.03230]. The models can then be finetuned to predict the viscosity/thermal conductivity of thermal fluids. 
 
 ## Getting Started
 
@@ -32,11 +32,11 @@ pip install -r requirements.txt
 
 ### Dataset
 
-The datasets used can be found here: 
+The datasets used can be found in `GNN_BT_Data` folder 
 
 ### Pre-training
 
-To train the MolBTR, where the configurations and detailed explaination for each variable can be found in `config.yaml`
+To train the MolBTR, where the configurations and detailed explanation for each variable can be found in `config.yaml`
 
 - Use the jupyter notebook called `main.ipynb`
 
@@ -53,7 +53,7 @@ To fine-tune the MolBTR pre-trained model on downstream molecular benchmarks, wh
 
 We also provide pre-trained GCN models, which can be found in `ckpt/BT1` and `ckpt/BT2` respectively.
 - BT1: 15% subgraph removed
-- BT2: 15% subgraph removed + 20% nodes/egdes masked
+- BT2: 15% subgraph removed + 20% nodes/edges masked
 
 ## Acknowledgements
 - MolCLR Approach: [https://www.nature.com/articles/s42256-022-00447-x#code-availability](https://www.nature.com/articles/s42256-022-00447-x#code-availability)
