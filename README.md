@@ -8,7 +8,7 @@ The original implementation has been updated to use the augmentations for the mo
 
 ### Installation
 
-Set up conda environment and clone the github repo.
+Set up conda environment and clone the github repo. The code has been tested on Ubuntu 24.04
 
 
 - Create a new environment:
