@@ -2,7 +2,7 @@
 
 <img src="figs/BT_pipeline.png" width="700">
 
-The original implementation has been updated to use the augmentations for the molecules to train two models simultaneously using a Barlow Twin approach: [https://arxiv.org/abs/2103.03230]. The models can then be finetuned to predict the viscosity/thermal conductivity of thermal fluids. 
+The original implementation has been updated to use the augmentations for the molecules to train two models simultaneously using a Barlow Twin approach: [https://arxiv.org/abs/2103.03230]. The models can then be finetuned to predict the dynamic viscosity/thermal conductivity of thermal fluids. 
 
 ## Getting Started
 
