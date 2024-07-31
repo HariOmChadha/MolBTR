@@ -18,7 +18,7 @@ conda create -n molbtr python=3.11
 ```
 conda activate molbtr
 ```
-- Clone the source code of MolCLR
+- Clone the source code of MolBTR
 ```
 git clone https://github.com/HariOmChadha/MolBTR.git
 ```
