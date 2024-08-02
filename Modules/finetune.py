@@ -1,18 +1,12 @@
 import os
-# import shutil
 import sys
 import yaml
 import numpy as np
-# import pandas as pd
-# from datetime import datetime
-# import matplotlib.pyplot as plt
-# from operator import add
 
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-# from torch.optim.lr_scheduler import CosineAnnealingLR
 from sklearn.metrics import roc_auc_score, mean_squared_error, mean_absolute_error
 
 from dataset.dataset_test import MolTestDatasetWrapper
@@ -382,7 +376,7 @@ class FineTune(object):
         return predictions, labels, A_pred, ln_As, B_pred, Bs
 
 
-def main(config):
+def main_finetune(config):
     dataset = MolTestDatasetWrapper(config['batch_size'], **config['dataset'])
 
     fine_tune = FineTune(dataset, config)
@@ -390,234 +384,5 @@ def main(config):
     srcc, mae = fine_tune.train(config)
 
     return srcc, mae
-    
-    # if config['dataset']['task'] == 'classification':
-    #     return fine_tune.roc_auc
-    # if config['dataset']['task'] == 'regression':
-    #     if config['task_name'] in ['qm7', 'qm8', 'qm9', 'visc']:
-    #         return fine_tune.mae
-    #     else:
-    #         return fine_tune.rmse
-
-
-def run(task, main_folder, tune_from, runs, targets):
-    '''Run the fine-tuning experiments for the given task.
-    task: str, the name of the task
-    main_folder: str, the folder to save the results
-    tune_from: str, the name of the pre-trained model
-    runs: int, the number of runs
-    targets: int, the number of train splits to fine-tune on'''
-
-    config = yaml.load(open("config_finetune.yaml", "r"), Loader=yaml.FullLoader)
-
-    config['task_name'] = task
-
-    if config['task_name'] == 'BBBP':
-        config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = 'data/bbbp/BBBP.csv'
-        target_list = ["p_np"]
-
-    elif config['task_name'] == 'Tox21':
-        config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = 'data/tox21/tox21.csv'
-        target_list = [
-            "NR-AR", "NR-AR-LBD", "NR-AhR", "NR-Aromatase", "NR-ER", "NR-ER-LBD", 
-            "NR-PPAR-gamma", "SR-ARE", "SR-ATAD5", "SR-HSE", "SR-MMP", "SR-p53"
-        ]
-
-    elif config['task_name'] == 'ClinTox':
-        config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = 'data/clintox/clintox.csv'
-        target_list = ['CT_TOX', 'FDA_APPROVED']
-
-    elif config['task_name'] == 'HIV':
-        config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = 'data/hiv/HIV.csv'
-        target_list = ["HIV_active"]
-
-    elif config['task_name'] == 'BACE':
-        config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = 'data/bace/bace.csv'
-        target_list = ["Class"]
-
-    elif config['task_name'] == 'SIDER':
-        config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = 'data/sider/sider.csv'
-        target_list = [
-            "Hepatobiliary disorders", "Metabolism and nutrition disorders", "Product issues", 
-            "Eye disorders", "Investigations", "Musculoskeletal and connective tissue disorders", 
-            "Gastrointestinal disorders", "Social circumstances", "Immune system disorders", 
-            "Reproductive system and breast disorders", 
-            "Neoplasms benign, malignant and unspecified (incl cysts and polyps)", 
-            "General disorders and administration site conditions", "Endocrine disorders", 
-            "Surgical and medical procedures", "Vascular disorders", 
-            "Blood and lymphatic system disorders", "Skin and subcutaneous tissue disorders", 
-            "Congenital, familial and genetic disorders", "Infections and infestations", 
-            "Respiratory, thoracic and mediastinal disorders", "Psychiatric disorders", 
-            "Renal and urinary disorders", "Pregnancy, puerperium and perinatal conditions", 
-            "Ear and labyrinth disorders", "Cardiac disorders", 
-            "Nervous system disorders", "Injury, poisoning and procedural complications"
-        ]
-    
-    elif config['task_name'] == 'MUV':
-        config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = 'data/muv/muv.csv'
-        target_list = [
-            'MUV-692', 'MUV-689', 'MUV-846', 'MUV-859', 'MUV-644', 'MUV-548', 'MUV-852',
-            'MUV-600', 'MUV-810', 'MUV-712', 'MUV-737', 'MUV-858', 'MUV-713', 'MUV-733',
-            'MUV-652', 'MUV-466', 'MUV-832'
-        ]
-
-    elif config['task_name'] == 'FreeSolv':
-        config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'data/freesolv/freesolv.csv'
-        target_list = ["expt"]
-    
-    elif config["task_name"] == 'ESOL':
-        config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'data/esol/esol.csv'
-        target_list = ["measured log solubility in mols per litre"]
-
-    elif config["task_name"] == 'Lipo':
-        config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'data/lipophilicity/Lipophilicity.csv'
-        target_list = ["exp"]
-    
-    elif config["task_name"] == 'qm7':
-        config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'data/qm7/qm7.csv'
-        target_list = ["u0_atom"]
-
-    elif config["task_name"] == 'qm8':
-        config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'data/qm8/qm8.csv'
-        target_list = [
-            "E1-CC2", "E2-CC2", "f1-CC2", "f2-CC2", "E1-PBE0", "E2-PBE0", 
-            "f1-PBE0", "f2-PBE0", "E1-CAM", "E2-CAM", "f1-CAM","f2-CAM"
-        ]
-    
-    elif config["task_name"] == 'qm9':
-        config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'data/qm9/qm9.csv'
-        target_list = ['mu', 'alpha', 'homo', 'lumo', 'gap', 'r2', 'zpve', 'cv']
-
-    elif config["task_name"] == 'visc':
-        config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'GNN_BT_Data/visc_data.csv'
-        target_list = [['Viscosity_1', 'Viscosity_2', 'Viscosity_3', 'Viscosity_4', 'Viscosity_5', 'T1', 'T2', 'T3', 'T4', 'T5', 'Ln(A)', 'Ea/R', 'smiles']]
-    elif config["task_name"] == 'cond':
-        config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'GNN_BT_Data/cond_data.csv'
-        target_list = [['K1', 'K2', 'K3', 'K4', 'K5', 'T1', 'T2', 'T3', 'T4', 'T5', 'Intercept', 'Coefficients', 'SMILES']]
-    elif config["task_name"] == 'visc_hc':
-        config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = 'GNN_BT_Data/visc_hc_data.csv'
-        target_list = [['Viscosity_1', 'Viscosity_2', 'Viscosity_3', 'Viscosity_4', 'Viscosity_5', 'T1', 'T2', 'T3', 'T4', 'T5', 'Intercept (A)', 'Coefficient (B)', 'smiles']]
-    else:
-        raise ValueError('Undefined downstream task!')
-
-    print(config)
-
-    # results_list = []
-    # for target in target_list:
-    #     config['dataset']['target'] = target
-    #     result = main(config)
-    #     results_list.append([target, result])
-
-
-    # save all the srcc and mae values in a dictionary
-    # save results in a yaml file
-    s_avg = np.zeros((targets, 5))
-    s_std = np.zeros((targets, 5))
-    m_avg = np.zeros((targets, 5))
-    m_std = np.zeros((targets, 5))
-
-    BT_s_avg = np.zeros((targets, 5))
-    BT_s_std = np.zeros((targets, 5))
-    BT_m_avg = np.zeros((targets, 5))
-    BT_m_std = np.zeros((targets, 5))
-
-    results = {
-        'scratch': np.zeros((runs, targets, 5)).tolist(),
-        'BT': np.zeros((runs, targets, 5)).tolist(),
-        'scratch_mae': np.zeros((runs, targets, 5)).tolist(),
-        'BT_mae': np.zeros((runs, targets, 5)).tolist(),
-        'axis': np.zeros(targets).tolist()
-    }
-
-    for j in range(runs):
-        folder = os.path.join(main_folder, f'test_{j+1}')
-        os.makedirs(folder, exist_ok=False)
-        
-        scratch = np.zeros((targets, 5))
-        BT = np.zeros((targets, 5))
-        scratch_mae = np.zeros((targets, 5))
-        BT_mae = np.zeros((targets, 5))
-        axis = np.zeros(targets)
-
-        a = 0
-        for i in range(6, 6-targets, -1):
-            print("start")
-            config['dataset']['target'] = target_list[0]
-            config['dataset']['train_size'] = (i+1)*0.1
-            config['save_folder'] = folder
-            config['fine_tune_from'] = tune_from
-            config['name'] = f'BT_{(i+1)*0.1:.1f}'
-            
-            srcc_BT, mae_BT = main(config)
-            BT[a] = srcc_BT
-            BT_mae[a] = mae_BT
-
-            config['fine_tune_from'] = 'None'
-            config['name'] = f'Scratch_{(i+1)*0.1:.1f}'
-            srcc_s, mae_s = main(config)
-            scratch[a] = srcc_s
-            scratch_mae[a] = mae_s
-            
-
-            if config["task_name"] == 'visc':
-                axis[a] = int((i+1)*0.1*477)
-            elif config["task_name"] == 'cond':
-                axis[a] = int((i+1)*0.1*1222)
-            elif config["task_name"] == 'visc_hc':
-                axis[a] = int((i+1)*0.1*182)
-
-            
-            print("done")
-        
-        for i in range(5):
-            plot_srcc_MAE(scratch[:, i], BT[:, i], s_std[:, i], BT_s_std[:, i], axis, f'{i+1}', folder, tag2='srcc')
-            plot_srcc_MAE(scratch_mae[:, i], BT_mae[:, i], m_std[:, i], BT_m_std[:, i], axis, f'{i+1}', folder, tag2='mae')
-
-        results['scratch'][j] = scratch.tolist()
-        results['BT'][j] = BT.tolist()
-        results['scratch_mae'][j] = scratch_mae.tolist()
-        results['BT_mae'][j] = BT_mae.tolist()
-        results['axis'] = axis.tolist()
-
-        s_avg += scratch
-        m_avg += scratch_mae
-        BT_s_avg += BT
-        BT_m_avg += BT_mae
-
-    s_avg /= runs
-    m_avg /= runs
-    BT_s_avg /= runs
-    BT_m_avg /= runs
-
-    if runs > 1:
-        s_std = np.std(np.array(results['scratch']), axis=0)
-        m_std = np.std(np.array(results['scratch_mae']), axis=0)
-        BT_s_std = np.std(np.array(results['BT']), axis=0)
-        BT_m_std = np.std(np.array(results['BT_mae']), axis=0)
-
-        for i in range(5):
-            plot_srcc_MAE(s_avg[:, i], BT_s_avg[:, i], s_std[:, i], BT_s_std[:, i], axis, f'{i+1}', main_folder, tag2='srcc', tag3 = 'avg')
-            plot_srcc_MAE(m_avg[:, i], BT_m_avg[:, i], m_std[:, i], BT_m_std[:, i], axis, f'{i+1}', main_folder, tag2='mae', tag3 = 'avg')
-
-    # Save results to YAML file
-    with open(f"{main_folder}/results.yaml", "w") as file:
-        yaml.dump(results, file)
-
     
 
